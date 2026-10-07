@@ -18,64 +18,63 @@ mlm_surface(
 )
 }
 \arguments{
-\item{model}{An \code{lmerMod} object with a two-way interaction between \code{pred}
-and \code{modx} in the fixed effects.}
+\item{model}{An `lmerMod` object with a two-way interaction between `pred`
+and `modx` in the fixed effects.}
 
 \item{pred}{Character scalar. Focal predictor (x-axis).}
 
 \item{modx}{Character scalar. Moderator (y-axis).}
 
-\item{grid}{Integer. Grid resolution (points per axis). Default \code{80}.}
+\item{grid}{Integer. Grid resolution (points per axis). Default `80`.}
 
-\item{n_contours}{Integer. Number of contour levels to draw. Default \code{10}.}
+\item{n_contours}{Integer. Number of contour levels to draw. Default `10`.}
 
-\item{fill}{Logical. Fill contour bands with colour? Default \code{TRUE}.}
+\item{fill}{Logical. Fill contour bands with colour? Default `TRUE`.}
 
 \item{probe_lines}{Logical. Overlay horizontal lines at mean -- 1 SD of
-\code{modx}? Default \code{TRUE}.}
+`modx`? Default `TRUE`.}
 
-\item{x_label}{x-axis label. Defaults to \code{pred}.}
+\item{x_label}{x-axis label. Defaults to `pred`.}
 
-\item{y_label}{y-axis label. Defaults to \code{modx}.}
+\item{y_label}{y-axis label. Defaults to `modx`.}
 
 \item{legend_title}{Legend title. Defaults to the outcome variable name.}
 }
 \value{
-A \code{ggplot} object.
+A `ggplot` object.
 }
 \description{
 Plots iso-outcome contour lines of \eqn{\hat{Y}(x, w)} over the full joint
-space of \code{pred} (x-axis) and \code{modx} (y-axis). This is the most direct
+space of `pred` (x-axis) and `modx` (y-axis). This is the most direct
 geometric representation of a two-way interaction:
 }
 \details{
-\itemize{
-\item \strong{No interaction}: contour lines are perfectly straight and parallel ---
-the effect of \code{pred} does not depend on \code{modx}.
-\item \strong{Positive interaction}: contour lines fan outward (rotate clockwise) ---
-higher \code{modx} steepens the \code{pred} slope.
-\item \strong{Negative interaction}: contour lines fan inward (rotate counter-clockwise).
-}
+* **No interaction**: contour lines are perfectly straight and parallel ---
+  the effect of `pred` does not depend on `modx`.
+* **Positive interaction**: contour lines fan outward (rotate clockwise) ---
+  higher `modx` steepens the `pred` slope.
+* **Negative interaction**: contour lines fan inward (rotate counter-clockwise).
 
 The degree of non-parallelism among contours is a direct visual index of
 interaction strength: the larger \eqn{\beta_3}, the more the lines rotate.
 
 An optional overlay draws the three standard simple-slope evaluation lines
-(mean -- 1 SD of \code{modx}) as horizontal reference lines, connecting the plot
-to \code{mlm_probe()} output.
+(mean -- 1 SD of `modx`) as horizontal reference lines, connecting the plot
+to `mlm_probe()` output.
+
 
 Predicted values are computed from fixed effects only
-(\code{re.form = NA}), with all covariates held at their means or reference
+(`re.form = NA`), with all covariates held at their means or reference
 levels. The surface therefore represents the population-average predicted
 outcome, not any specific cluster.
 
-\strong{Reading the plot:}
-Pick any contour line. Its slope in the \code{pred} direction tells you how fast
-the outcome changes with \code{pred} at that \code{modx} value. If the contour slopes
-steeply up-right, \code{pred} has a strong positive effect there. If contours
-become more horizontal as \code{modx} increases, the \code{pred} effect is weakening.
+**Reading the plot:**
+Pick any contour line. Its slope in the `pred` direction tells you how fast
+the outcome changes with `pred` at that `modx` value. If the contour slopes
+steeply up-right, `pred` has a strong positive effect there. If contours
+become more horizontal as `modx` increases, the `pred` effect is weakening.
 If they rotate from positive to flat to negative, you have a sign-changing
-interaction --- and the \code{modx} value where they are perfectly horizontal is
+interaction --- and the `modx` value where they are perfectly horizontal is
 the Johnson-Neyman boundary.
 }
 \examples{

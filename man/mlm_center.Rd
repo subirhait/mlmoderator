@@ -19,26 +19,24 @@ mlm_center(
 \item{vars}{Character vector of variable names to center.}
 
 \item{cluster}{Character scalar: name of the clustering variable (required
-when \code{type} is \code{"group"} or \code{"both"}).}
+when `type` is `"group"` or `"both"`).}
 
-\item{type}{One of \code{"grand"}, \code{"group"}, or \code{"both"}.
-\itemize{
-\item \code{"grand"}: subtract the overall mean.
-\item \code{"group"}: subtract the cluster mean (within-person / within-school
-centering).
-\item \code{"both"}: return both the within-cluster-centered value \emph{and} the
-cluster mean (between component), appended as new columns.
-}}
+\item{type}{One of `"grand"`, `"group"`, or `"both"`.
+* `"grand"`: subtract the overall mean.
+* `"group"`: subtract the cluster mean (within-person / within-school
+  centering).
+* `"both"`: return both the within-cluster-centered value *and* the
+  cluster mean (between component), appended as new columns.}
 
 \item{suffix_within}{Suffix appended to within-centered variable names when
-\code{type = "both"}. Default is \code{"_within"}.}
+`type = "both"`. Default is `"_within"`.}
 
 \item{suffix_between}{Suffix appended to between (cluster mean) variable
-names when \code{type = "both"}. Default is \code{"_between"}.}
+names when `type = "both"`. Default is `"_between"`.}
 }
 \value{
 The input data frame with new centered columns appended. Original
-columns are not modified.
+  columns are not modified.
 }
 \description{
 Performs grand-mean centering, group-mean centering, or both (within-between

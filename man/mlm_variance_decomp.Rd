@@ -2,7 +2,7 @@
 % Please edit documentation in R/mlm_variance_decomp.R
 \name{mlm_variance_decomp}
 \alias{mlm_variance_decomp}
-\title{Decompose uncertainty in the simple slope of a multilevel interaction}
+\title{Confidence and prediction intervals for simple slopes in a random-slope model}
 \usage{
 mlm_variance_decomp(
   model,
@@ -10,79 +10,86 @@ mlm_variance_decomp(
   modx,
   modx.values = c("mean-sd", "quartiles", "tertiles", "custom"),
   at = NULL,
-  conf.level = 0.95
+  conf.level = 0.95,
+  df_method = c("satterthwaite", "kenward-roger", "between", "residual"),
+  modx.level = c("auto", "cluster", "observation")
 )
 }
 \arguments{
-\item{model}{An \code{lmerMod} object with a random slope for \code{pred} and a
-two-way interaction between \code{pred} and \code{modx}.}
+\item{model}{An `lmerMod` object with a random slope for `pred` and a
+two-way interaction between `pred` and `modx`.}
 
 \item{pred}{Character scalar. Focal predictor name.}
 
 \item{modx}{Character scalar. Moderator name.}
 
-\item{modx.values}{Strategy for moderator values. See \code{mlm_probe()}.}
+\item{modx.values}{Strategy for moderator values. See `mlm_probe()`.}
 
 \item{at}{Optional numeric vector of custom moderator values.}
 
-\item{conf.level}{Confidence level for fixed-effect CIs. Default \code{0.95}.}
+\item{conf.level}{Level for the confidence and prediction intervals.
+Default `0.95`.}
+
+\item{df_method}{Denominator degrees of freedom for tests and intervals:
+* `"satterthwaite"` (default): Satterthwaite approximation via
+  \pkg{lmerTest}.
+* `"kenward-roger"`: Kenward-Roger approximation (requires
+  \pkg{pbkrtest}); also uses the Kenward-Roger adjusted covariance, so
+  standard errors can differ slightly.
+* `"between"`: \eqn{J - q - 1}, where \eqn{J} is the number of clusters
+  and \eqn{q} the number of cluster-level fixed effects (Snijders and
+  Bosker, 2012). A simple, conservative choice for cross-level terms.
+* `"residual"`: \eqn{N - p}, the rule used by mlmoderator before 0.3.0.
+  It treats level-1 observations as independent and is anti-conservative
+  for cross-level interactions, especially with few clusters; it is kept
+  only for reproducing earlier results.}
+
+\item{modx.level}{How moderator values are summarised when choosing probe
+points. `"auto"` (default) uses one value per cluster when `modx` is
+constant within clusters (a cluster-level moderator) and all
+observations otherwise; `"cluster"` and `"observation"` force either.
+Ignored when `at` is supplied.}
 }
 \value{
-An object of class \code{mlm_variance_decomp} (a list) with:
-\itemize{
-\item \code{decomp}: data frame with columns \code{modx_value}, \code{slope},
-\code{se_fixed} (SE from fixed-effect vcov only),
-\code{tau11} (random-slope SD, if estimable),
-\code{se_total} (combined SE for prediction in new cluster),
-\code{ci_lower}, \code{ci_upper} (fixed-effect CI),
-\code{pi_lower}, \code{pi_upper} (prediction interval for new cluster),
-\code{pct_random} (\% of total slope variance from random effects).
-\item \code{tau11}: the random-slope variance (\eqn{\tau_{11}}).
-\item \code{has_random_slope}: logical -- does the model include a random slope
-for \code{pred}?
-\item Metadata: \code{pred}, \code{modx}, \code{conf.level}.
-}
+An object of class `mlm_variance_decomp` (a list) with:
+  * `decomp`: data frame with columns `modx_value`, `slope`, `se_fixed`
+    (SE of the average slope), `tau11` (random-slope variance), `tau11_sd`
+    (its square root), `se_total` (\eqn{\sqrt{SE^2 + \tau_{11}}}), `df`,
+    `ci_lower`, `ci_upper` (confidence interval for the average slope), and
+    `pi_lower`, `pi_upper` (prediction interval for a new cluster).
+  * `tau11`, `tau11_sd`: the random-slope variance and SD.
+  * `has_random_slope`: logical; does the model include a random slope for
+    `pred`?
+  * Metadata: `pred`, `modx`, `conf.level`, `df_method`, `grp_name`.
 }
 \description{
-In a random-slope model, the uncertainty around a simple slope has two
-distinct sources that standard \code{mlm_probe()} collapses into one SE:
+In a model with a random slope for `pred`, two different questions can be
+asked about the slope at a given moderator value \eqn{w}:
 }
 \details{
-\enumerate{
-\item \strong{Fixed-effect uncertainty} -- imprecision in the estimated average
-slope (\eqn{\beta_1 + \beta_3 \cdot w}), captured by the fixed-effect
-variance-covariance matrix.
-\item \strong{Random-slope variance} -- genuine between-cluster heterogeneity in
-the slope of \code{pred} (\eqn{\tau_{11}}), which is \emph{not} estimation error
-but real variation in effects across clusters.
-}
+1. **How precisely is the average slope known?** The confidence interval
+   for \eqn{\beta_1 + \beta_3 w} reflects only estimation uncertainty in
+   the fixed effects (as in [mlm_probe()]).
+2. **What slope should be expected in a new cluster?** The prediction
+   interval adds the residual random-slope variance \eqn{\tau_{11}}:
+   \deqn{\hat\beta_1 + \hat\beta_3 w \pm t_{df}\sqrt{SE^2(w) + \hat\tau_{11}}.}
 
-These answer different questions:
-\itemize{
-\item Fixed-effect uncertainty: "How precisely do we know the \emph{average} slope
-at this moderator value?"
-\item Random-slope variance: "How much does the slope \emph{actually vary} across
-clusters, regardless of what the moderator does?"
-}
+Because `modx` is in the model, \eqn{\tau_{11}} is the slope variance
+that remains *after* the moderator: a significant interaction does not mean
+the moderator explains the between-cluster slope differences, and a large
+\eqn{\tau_{11}} relative to the average slope means individual clusters
+can have slopes far from it.
 
-The function also reports a \strong{prediction interval} for the slope in a
-new (unobserved) cluster, which combines both sources and is the
-appropriate uncertainty interval for making cluster-level predictions.
 
-\strong{Random-slope variance (\eqn{\tau_{11}}) interpretation:}
-If \code{tau11} is large relative to the fixed slope, the effect of \code{pred}
-varies substantially across clusters even \emph{after} accounting for the
-moderator. This is important: a significant interaction does not mean
-the moderator fully explains between-cluster slope heterogeneity.
+The prediction interval treats \eqn{\hat\tau_{11}} as known and assumes
+normally distributed random slopes, so it is approximate and too narrow
+when the number of clusters is small. The random slope is taken from the
+grouping factor whose random-effects terms include `pred`.
 
-\strong{Prediction interval interpretation:}
-The prediction interval answers: "For a randomly sampled new cluster at
-this moderator value, what range of slopes should we expect?" It will
-always be wider than the confidence interval because it incorporates
-\eqn{\tau_{11}}.
-
-\strong{Percentage of variance from random effects:}
-\eqn{\% \text{random} = \frac{\tau_{11}}{\tau_{11} + \text{Var}(\hat{\beta}_{\text{simple slope}})} \times 100}
+Versions before 0.3.0 reported `pct_random`, the ratio
+\eqn{\tau_{11} / (\tau_{11} + SE^2)}. It mixed a population variance with
+a sampling variance, so it grew with sample size without any change in
+the data-generating process; it has been removed.
 }
 \examples{
 set.seed(1)

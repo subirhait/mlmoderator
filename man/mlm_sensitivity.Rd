@@ -2,107 +2,116 @@
 % Please edit documentation in R/mlm_sensitivity.R
 \name{mlm_sensitivity}
 \alias{mlm_sensitivity}
-\title{Robustness diagnostics for cross-level interaction effects}
+\title{Leave-one-cluster-out influence diagnostics for a cross-level interaction}
 \usage{
 mlm_sensitivity(
   model,
   pred,
   modx,
   alpha = 0.05,
-  icc_range = c(0.01, 0.4),
-  icc_grid = 50L,
-  loco = TRUE,
-  conf.level = 0.95,
-  verbose = FALSE
+  df_method = c("satterthwaite", "kenward-roger", "between", "residual"),
+  verbose = FALSE,
+  icc_range,
+  icc_grid,
+  loco = TRUE
 )
 }
 \arguments{
-\item{model}{An \code{lmerMod} object with a two-way interaction between \code{pred}
-and \code{modx}.}
+\item{model}{An `lmerMod` object with a two-way interaction between `pred`
+and `modx`.}
 
 \item{pred}{Character scalar. Focal predictor name.}
 
 \item{modx}{Character scalar. Moderator name.}
 
-\item{alpha}{Significance level. Default \code{0.05}.}
+\item{alpha}{Significance level used to record whether each refit keeps
+the interaction significant. Default `0.05`.}
 
-\item{icc_range}{Numeric vector of length 2. Range of ICC values to
-evaluate. Default \code{c(0.01, 0.40)}.}
+\item{df_method}{Denominator degrees of freedom for tests and intervals:
+* `"satterthwaite"` (default): Satterthwaite approximation via
+  \pkg{lmerTest}.
+* `"kenward-roger"`: Kenward-Roger approximation (requires
+  \pkg{pbkrtest}); also uses the Kenward-Roger adjusted covariance, so
+  standard errors can differ slightly.
+* `"between"`: \eqn{J - q - 1}, where \eqn{J} is the number of clusters
+  and \eqn{q} the number of cluster-level fixed effects (Snijders and
+  Bosker, 2012). A simple, conservative choice for cross-level terms.
+* `"residual"`: \eqn{N - p}, the rule used by mlmoderator before 0.3.0.
+  It treats level-1 observations as independent and is anti-conservative
+  for cross-level interactions, especially with few clusters; it is kept
+  only for reproducing earlier results.}
 
-\item{icc_grid}{Integer. Number of ICC values in the grid. Default \code{50}.}
+\item{verbose}{Logical. Print progress during refitting? Default `FALSE`.}
 
-\item{loco}{Logical. Run leave-one-cluster-out analysis? Default \code{TRUE}.
-Set to \code{FALSE} for large datasets where refitting is slow.}
-
-\item{conf.level}{Confidence level. Default \code{0.95}.}
-
-\item{verbose}{Logical. Print progress during LOCO refitting? Default
-\code{FALSE}.}
+\item{icc_range, icc_grid, loco}{Defunct arguments from versions before
+0.3.0 (see Details). Supplying `icc_range` or `icc_grid` gives a warning
+and is otherwise ignored; `loco = FALSE` is no longer supported.}
 }
 \value{
-An object of class \code{mlm_sensitivity} with components:
-\itemize{
-\item \code{icc_shift}: data frame of interaction SE, t, p, significance, and
-approximate JN boundary across the ICC grid.
-\item \code{loco}: data frame with one row per cluster giving the interaction
-coefficient, SE, t, p, and Cook's-distance-style influence measure
-when that cluster is omitted. \code{NULL} if \code{loco = FALSE}.
-\item \code{robustness_index}: proportion of the ICC range where the interaction
-remains significant.
-\item \code{observed}: list of observed model statistics.
-\item Metadata: \code{pred}, \code{modx}, \code{alpha}, \code{icc_range}, \code{int_term}.
-}
+An object of class `mlm_sensitivity` with components:
+  * `observed`: list with the full-data interaction estimate, SE, df,
+    p-value, and number of clusters.
+  * `loco`: data frame with one row per cluster: `cluster`, `n_obs`,
+    `b_int`, `se_int`, `df`, `p_int`, `b_change`, `dfbeta`, `influential`,
+    `same_sign`, `sig`, and `error` (the error message when a refit
+    failed, otherwise `NA`).
+  * `cutoff`: the DFBETA flagging cutoff \eqn{2/\sqrt{J}}.
+  * `summary`: list with the number of failed refits, the proportion of
+    successful refits keeping the sign and significance of the interaction,
+    and the range of refitted estimates.
+  * Metadata: `pred`, `modx`, `alpha`, `df_method`, `grp_name`,
+    `int_term`.
 }
 \description{
-Assesses the stability of a cross-level interaction effect using two
-MLM-appropriate diagnostics:
+Refits the model once for each cluster, leaving that cluster out, and
+records how the interaction coefficient changes. This answers a specific
+question: *is the interaction driven by a small number of clusters?*
 }
 \details{
-\enumerate{
-\item \strong{ICC-shift robustness} -- how do the interaction SE and Johnson-Neyman
-boundary change if the intraclass correlation were different from what
-was observed? This is relevant because the ICC determines the effective
-sample size at level 2, which directly governs precision of cross-level
-interaction estimates.
-\item \strong{Leave-one-cluster-out (LOCO) stability} -- refit the model dropping
-one cluster at a time and track how the interaction coefficient moves.
-This is nonparametric, makes no distributional assumptions, and directly
-answers: "Is this finding driven by a small number of influential
-clusters?"
-}
-}
-\section{Scope}{
+Each refit uses [stats::update()] on the data the model was fitted to
+(via [lme4::getData()]), so it keeps the original formula, estimation
+method (REML or ML), weights, and control settings. Influence is measured
+by a DFBETA-type statistic,
+\deqn{\mathrm{DFBETA}_j = (\hat\beta_{3(-j)} - \hat\beta_3) / SE(\hat\beta_3),}
+the change in the interaction when cluster \eqn{j} is omitted, in units of
+the full-data standard error. Clusters with
+\eqn{|\mathrm{DFBETA}_j| > 2/\sqrt{J}} are flagged, following the usual
+size-adjusted cutoff for DFBETAS (Belsley, Kuh, and Welsch, 1980). The
+cutoff is a screening heuristic, not a test.
 
-These are \strong{robustness diagnostics}, not a full causal sensitivity
-analysis. They do not quantify the strength of unmeasured confounding
-needed to explain away the interaction -- that requires a level-2-aware
-omitted variable bound that is currently under development as a separate
-methodological contribution. See \code{vignette("robustness-diagnostics")} for
-interpretation guidance.
-}
 
+**Changes in 0.3.0.** Earlier versions also reported an "ICC-shift"
+analysis that rescaled the interaction's standard error by a
+design-effect ratio for hypothetical intraclass correlations. That formula
+applies to means under a random-intercept model, not to a cross-level
+interaction in a random-slope model, and the accompanying adjusted
+Johnson-Neyman boundary was not correct, so the analysis has been removed.
+The earlier leave-one-cluster-out refits used maximum likelihood even when
+the original model used REML, and refitted from the model frame, which
+failed silently for formulas with transformed variables; both are fixed.
+
+**Scope.** These are influence diagnostics. They do not address
+unmeasured confounding of the interaction.
+}
 \examples{
-# Use a small dataset for fast execution
 set.seed(42)
 n_j <- 20; n_i <- 10
 dat_small <- data.frame(
-  y    = rnorm(n_j * n_i),
-  x    = rnorm(n_j * n_i),
-  m    = rep(rnorm(n_j), each = n_i),
-  grp  = factor(rep(seq_len(n_j), each = n_i))
+  y   = rnorm(n_j * n_i),
+  x   = rnorm(n_j * n_i),
+  m   = rep(rnorm(n_j), each = n_i),
+  grp = factor(rep(seq_len(n_j), each = n_i))
 )
 dat_small$y <- dat_small$y + 0.5 * dat_small$x * dat_small$m
-mod_small <- lme4::lmer(y ~ x * m + (1 + x | grp), data = dat_small,
-                        control = lme4::lmerControl(optimizer = "bobyqa"))
+mod_small <- lme4::lmer(y ~ x * m + (1 | grp), data = dat_small)
 
-# ICC-shift only (fast)
-sens <- mlm_sensitivity(mod_small, pred = "x", modx = "m", loco = FALSE)
-print(sens)
+sens <- mlm_sensitivity(mod_small, pred = "x", modx = "m",
+                        df_method = "between")
+sens
+plot(sens)
 
-# Full diagnostics including LOCO (20 clusters - fast)
-\donttest{
-sens_full <- mlm_sensitivity(mod_small, pred = "x", modx = "m")
-plot(sens_full)
 }
-
+\references{
+Belsley, D. A., Kuh, E., & Welsch, R. E. (1980). *Regression diagnostics*.
+Wiley.
 }

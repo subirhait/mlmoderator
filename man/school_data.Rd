@@ -7,12 +7,12 @@
 \format{
 A data frame with 3,000 rows and 6 variables:
 \describe{
-\item{school}{A factor indicating the school identifier (1--100).}
-\item{student}{An integer indicating the student identifier (1--3000).}
-\item{math}{A numeric mathematics achievement score.}
-\item{ses}{A numeric student socioeconomic status variable (standardized).}
-\item{climate}{A numeric school climate rating (standardized level-2 variable).}
-\item{gender}{A factor indicating student gender with levels \code{"female"} and \code{"male"}.}
+  \item{school}{A factor indicating the school identifier (1--100).}
+  \item{student}{An integer indicating the student identifier (1--3000).}
+  \item{math}{A numeric mathematics achievement score.}
+  \item{ses}{A numeric student socioeconomic status variable (standardized).}
+  \item{climate}{A numeric school climate rating (standardized level-2 variable).}
+  \item{gender}{A factor indicating student gender with levels `"female"` and `"male"`.}
 }
 }
 \usage{

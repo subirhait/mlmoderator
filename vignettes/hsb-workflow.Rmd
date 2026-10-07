@@ -1,0 +1,129 @@
+---
+title: "A complete workflow with real data: SES and school context in High School and Beyond"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{A complete workflow with real data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+has_mlmrev <- requireNamespace("mlmRev", quietly = TRUE)
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6.5,
+                      fig.height = 4, eval = has_mlmrev)
+```
+
+```{r, eval = !has_mlmrev, echo = FALSE, results = "asis"}
+cat("*This vignette uses the `Hsb82` data from the 'mlmRev' package;",
+    "install it to run the code.*")
+```
+
+This vignette analyses a classic cross-level interaction with public data:
+does the within-school relationship between students' socioeconomic status
+(SES) and mathematics achievement depend on the average SES of the school?
+The data are the 1982 High School and Beyond subsample analysed by
+Raudenbush and Bryk (2002): 7,185 students in 160 schools.
+
+## Model
+
+`cses` is student SES centred at the school mean, so its coefficient is a
+purely within-school slope. `meanses` is the school mean SES, a cluster-level
+moderator. Following Raudenbush and Bryk, the model also lets the SES slope
+differ by school sector.
+
+```{r model}
+library(mlmoderator)
+library(lme4)
+data("Hsb82", package = "mlmRev")
+
+fit <- lmer(mAch ~ cses * meanses + cses * sector + (1 + cses | school),
+            data = Hsb82)
+```
+
+## Probing the interaction
+
+```{r summary}
+mlm_summary(fit, pred = "cses", modx = "meanses")
+```
+
+Because `meanses` is constant within schools, the default probe points
+(mean and ±1 SD) are computed across the 160 schools rather than across
+students, so large schools do not dominate them.
+
+Tests use Satterthwaite degrees of freedom by default. Inference for a
+cross-level interaction draws its information from the clusters, so the
+relevant degrees of freedom are on the order of the number of schools, not
+the number of students:
+
+```{r df-compare}
+sapply(c("satterthwaite", "kenward-roger", "between", "residual"),
+       function(m) {
+         r <- mlm_summary(fit, "cses", "meanses", jn = FALSE,
+                          df_method = m)$interaction
+         round(c(SE = r$se, df = r$df, p = r$p), 5)
+       })
+```
+
+With 160 schools the choice hardly matters here. It matters a great deal
+with few clusters: in a simulation with 10 clusters and no true interaction,
+the `"residual"` rule (students minus fixed effects, the default before
+mlmoderator 0.3.0) rejected in 10.0% of 400 replications at the nominal 5%
+level, while Satterthwaite rejected in 5.5% and the between-cluster rule in
+5.75%.
+
+## Plots
+
+```{r plot}
+mlm_plot(fit, pred = "cses", modx = "meanses",
+         x_label = "Student SES (school-centred)",
+         y_label = "Mathematics achievement",
+         legend_title = "School mean SES")
+```
+
+```{r jn}
+plot(mlm_jn(fit, pred = "cses", modx = "meanses"))
+```
+
+## How much do school slopes vary beyond the moderator?
+
+The interaction describes how the *average* SES slope changes with school
+SES. Individual schools still differ around that average:
+
+```{r decomp}
+vd <- mlm_variance_decomp(fit, pred = "cses", modx = "meanses")
+vd
+plot(vd)
+```
+
+The confidence intervals describe the average slope at each value of
+`meanses`; the prediction intervals describe the slope to expect in a new
+school with that mean SES. They are wider because school mean SES
+explains only part of the between-school variation in SES slopes.
+
+## Is the interaction driven by a few schools?
+
+```{r loco}
+sens <- mlm_sensitivity(fit, pred = "cses", modx = "meanses",
+                        df_method = "between")
+sens
+plot(sens)
+```
+
+Dropping any single school leaves the interaction positive and
+significant. A few schools move the estimate by more than the screening
+cutoff and are worth inspecting, but none changes the conclusion.
+
+## What this workflow does not do
+
+* The diagnostics describe the fitted model. They do not address
+  unmeasured confounding of the interaction; school mean SES is not randomly
+  assigned, and the interaction is an association unless further assumptions
+  hold.
+* Prediction intervals treat the random-slope variance as known and assume
+  normally distributed random slopes.
+* The DFBETA cutoff flags clusters for inspection. It is not a test.
+
+## Reference
+
+Raudenbush, S. W., & Bryk, A. S. (2002). *Hierarchical linear models:
+Applications and data analysis methods* (2nd ed.). Sage.

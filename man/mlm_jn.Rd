@@ -4,39 +4,78 @@
 \alias{mlm_jn}
 \title{Johnson---Neyman interval for multilevel two-way interactions}
 \usage{
-mlm_jn(model, pred, modx, alpha = 0.05, modx.range = NULL, grid = 200L)
+mlm_jn(
+  model,
+  pred,
+  modx,
+  alpha = 0.05,
+  modx.range = NULL,
+  grid = 200L,
+  df_method = c("satterthwaite", "kenward-roger", "between", "residual")
+)
 }
 \arguments{
-\item{model}{An \code{lmerMod} object with a two-way interaction between \code{pred}
-and \code{modx} in the fixed-effects structure.}
+\item{model}{An `lmerMod` object with a two-way interaction between `pred`
+and `modx` in the fixed-effects structure.}
 
 \item{pred}{Character scalar. Focal predictor name.}
 
 \item{modx}{Character scalar. Moderator name.}
 
-\item{alpha}{Significance level. Default \code{0.05}.}
+\item{alpha}{Significance level. Default `0.05`.}
 
 \item{modx.range}{Numeric vector of length 2 giving the range over which to
-evaluate the slope. Defaults to the observed range of \code{modx}.}
+evaluate the slope. Defaults to the observed range of `modx`.}
 
-\item{grid}{Integer. Number of points at which to evaluate the slope across
-the moderator range. Default \code{200}.}
+\item{grid}{Integer. Number of points at which the slope is evaluated
+across the moderator range (used for plotting and to bracket the
+boundaries). Default `200`.}
+
+\item{df_method}{Denominator degrees of freedom for tests and intervals:
+* `"satterthwaite"` (default): Satterthwaite approximation via
+  \pkg{lmerTest}.
+* `"kenward-roger"`: Kenward-Roger approximation (requires
+  \pkg{pbkrtest}); also uses the Kenward-Roger adjusted covariance, so
+  standard errors can differ slightly.
+* `"between"`: \eqn{J - q - 1}, where \eqn{J} is the number of clusters
+  and \eqn{q} the number of cluster-level fixed effects (Snijders and
+  Bosker, 2012). A simple, conservative choice for cross-level terms.
+* `"residual"`: \eqn{N - p}, the rule used by mlmoderator before 0.3.0.
+  It treats level-1 observations as independent and is anti-conservative
+  for cross-level interactions, especially with few clusters; it is kept
+  only for reproducing earlier results.}
 }
 \value{
-An object of class \code{mlm_jn} with components:
-\itemize{
-\item \code{jn_bounds}: numeric vector of moderator values where the slope crosses
-the significance threshold. \code{NA} if no finite region exists.
-\item \code{slopes_df}: data frame of slope estimates and significance across the
-grid.
-\item \code{pred}, \code{modx}, \code{alpha}, \code{modx.range}.
-}
+An object of class `mlm_jn` with components:
+  * `jn_bounds`: numeric vector of moderator values inside `modx.range`
+    where the slope crosses the significance threshold. `NA` if none.
+  * `jn_bounds_all`: for constant-df methods, all real roots of the
+    Johnson-Neyman quadratic (possibly outside the data); `NULL` otherwise.
+  * `slopes_df`: data frame of slope estimates and significance across the
+    grid.
+  * `pred`, `modx`, `alpha`, `modx.range`, `df_method`.
 }
 \description{
 Computes the Johnson---Neyman (JN) interval: the region(s) of the moderator
-(\code{modx}) where the simple slope of \code{pred} transitions between statistical
-significance and non-significance. Useful for identifying \emph{exactly} at which
+(`modx`) where the simple slope of `pred` transitions between statistical
+significance and non-significance. Useful for identifying *exactly* at which
 moderator values an effect becomes significant.
+}
+\details{
+A Johnson-Neyman boundary is a moderator value \eqn{w} at which
+\eqn{|t(w)| = t_{1-\alpha/2,\,df(w)}}, where
+\eqn{t(w) = (\hat\beta_1 + \hat\beta_3 w) / SE(w)}. With a constant
+number of degrees of freedom (`df_method = "between"` or `"residual"`) the
+boundaries are the real roots of a quadratic in \eqn{w} (Bauer and Curran,
+2005), and these closed-form roots are returned. With Satterthwaite or
+Kenward-Roger degrees of freedom, which change with \eqn{w}, the
+boundaries are found by root-finding (`stats::uniroot()`) on the exact
+criterion, starting from brackets located on the grid.
+
+Only boundaries inside `modx.range` are returned in `jn_bounds`. The
+closed-form roots outside that range are reported in `jn_bounds_all`
+when available, because a boundary outside the observed data is an
+extrapolation.
 }
 \examples{
 set.seed(1)

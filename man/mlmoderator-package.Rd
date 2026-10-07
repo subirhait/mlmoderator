@@ -6,28 +6,30 @@
 \alias{mlmoderator-package}
 \title{mlmoderator: Probing and Visualizing Multilevel Interaction Effects}
 \description{
-\code{mlmoderator} provides a unified workflow for estimating, probing, and
+`mlmoderator` provides a unified workflow for estimating, probing, and
 visualizing multilevel moderation effects from mixed-effects models fitted
-with \code{lme4::lmer()}. It supports simple slopes analysis, Johnson---Neyman
+with `lme4::lmer()`. It supports simple slopes analysis, Johnson---Neyman
 intervals, publication-ready interaction plots, and grand- or group-mean
-centering.
-\subsection{Core functions}{\tabular{ll}{
-   Function \tab Description \cr
-   \code{mlm_center()} \tab Grand- or group-mean center variables \cr
-   \code{mlm_probe()} \tab Compute simple slopes at selected moderator values \cr
-   \code{mlm_jn()} \tab Johnson-Neyman significance regions \cr
-   \code{mlm_plot()} \tab Publication-ready interaction plot \cr
-   \code{mlm_summary()} \tab Consolidated moderation report \cr
-   \code{mlm_variance_decomp()} \tab Decompose slope uncertainty into fixed + random components \cr
-   \code{mlm_surface()} \tab Slope surface heatmap over the full predictor x moderator space \cr
-   \code{mlm_sensitivity()} \tab Robustness of interaction to ICC shift and omitted confounders \cr
-}
+centering. Tests and intervals use Satterthwaite degrees of freedom by
+default (see the `df_method` argument of [mlm_probe()]).
 
-}
+## Core functions
 
-\subsection{Typical workflow}{
+| Function | Description |
+|---|---|
+| `mlm_center()` | Grand- or group-mean center variables |
+| `mlm_probe()` | Compute simple slopes at selected moderator values |
+| `mlm_jn()` | Johnson-Neyman significance regions |
+| `mlm_plot()` | Publication-ready interaction plot |
+| `mlm_summary()` | Consolidated moderation report |
+| `mlm_variance_decomp()` | Confidence vs. new-cluster prediction intervals for slopes |
+| `mlm_surface()` | Slope surface heatmap over the full predictor x moderator space |
+| `mlm_sensitivity()` | Leave-one-cluster-out influence on the interaction |
 
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{library(mlmoderator)
+## Typical workflow
+
+```r
+library(mlmoderator)
 library(lme4)
 
 data(school_data)
@@ -49,19 +51,23 @@ mlm_plot(mod, pred = "ses", modx = "climate")
 
 # 6. Summary report
 mlm_summary(mod, pred = "ses", modx = "climate")
-}\if{html}{\out{</div>}}
-}
+```
 }
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://github.com/causalfragility-lab/mlmoderator}
-  \item Report bugs at \url{https://github.com/causalfragility-lab/mlmoderator/issues}
+  \item \url{https://github.com/subirhait/mlmoderator}
+  \item Report bugs at \url{https://github.com/subirhait/mlmoderator/issues}
 }
 
 }
 \author{
 \strong{Maintainer}: Subir Hait \email{haitsubi@msu.edu} (\href{https://orcid.org/0009-0004-9871-9677}{ORCID})
+
+Authors:
+\itemize{
+  \item Subir Hait \email{haitsubi@msu.edu} (\href{https://orcid.org/0009-0004-9871-9677}{ORCID})
+}
 
 }
 \keyword{internal}

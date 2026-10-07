@@ -12,35 +12,55 @@ mlm_summary(
   at = NULL,
   conf.level = 0.95,
   jn = TRUE,
-  alpha = 0.05
+  alpha = 0.05,
+  df_method = c("satterthwaite", "kenward-roger", "between", "residual"),
+  modx.level = c("auto", "cluster", "observation")
 )
 }
 \arguments{
-\item{model}{An \code{lmerMod} object with a two-way interaction between \code{pred}
-and \code{modx}.}
+\item{model}{An `lmerMod` object with a two-way interaction between `pred`
+and `modx`.}
 
 \item{pred}{Character scalar. Focal predictor name.}
 
 \item{modx}{Character scalar. Moderator name.}
 
-\item{modx.values}{Moderator value strategy. See \code{mlm_probe()}.}
+\item{modx.values}{Moderator value strategy. See `mlm_probe()`.}
 
 \item{at}{Optional numeric vector of custom moderator values.}
 
-\item{conf.level}{Confidence level. Default \code{0.95}.}
+\item{conf.level}{Confidence level. Default `0.95`.}
 
-\item{jn}{Logical. Include Johnson-Neyman region? Default \code{TRUE}.}
+\item{jn}{Logical. Include Johnson-Neyman region? Default `TRUE`.}
 
-\item{alpha}{Alpha for JN interval. Default \code{0.05}.}
+\item{alpha}{Alpha for JN interval. Default `0.05`.}
+
+\item{df_method}{Denominator degrees of freedom for tests and intervals:
+* `"satterthwaite"` (default): Satterthwaite approximation via
+  \pkg{lmerTest}.
+* `"kenward-roger"`: Kenward-Roger approximation (requires
+  \pkg{pbkrtest}); also uses the Kenward-Roger adjusted covariance, so
+  standard errors can differ slightly.
+* `"between"`: \eqn{J - q - 1}, where \eqn{J} is the number of clusters
+  and \eqn{q} the number of cluster-level fixed effects (Snijders and
+  Bosker, 2012). A simple, conservative choice for cross-level terms.
+* `"residual"`: \eqn{N - p}, the rule used by mlmoderator before 0.3.0.
+  It treats level-1 observations as independent and is anti-conservative
+  for cross-level interactions, especially with few clusters; it is kept
+  only for reproducing earlier results.}
+
+\item{modx.level}{How moderator values are summarised when choosing probe
+points. `"auto"` (default) uses one value per cluster when `modx` is
+constant within clusters (a cluster-level moderator) and all
+observations otherwise; `"cluster"` and `"observation"` force either.
+Ignored when `at` is supplied.}
 }
 \value{
-An object of class \code{mlm_summary} (a list) with components:
-\itemize{
-\item \code{interaction}: one-row data frame for the interaction term.
-\item \code{simple_slopes}: data frame from \code{mlm_probe()}.
-\item \code{jn}: output of \code{mlm_jn()} (or \code{NULL} if \code{jn = FALSE}).
-\item Other metadata.
-}
+An object of class `mlm_summary` (a list) with components:
+  * `interaction`: one-row data frame for the interaction term.
+  * `simple_slopes`: data frame from `mlm_probe()`.
+  * `jn`: output of `mlm_jn()` (or `NULL` if `jn = FALSE`).
+  * Other metadata.
 }
 \description{
 Returns a consolidated summary of the moderation effect: the focal

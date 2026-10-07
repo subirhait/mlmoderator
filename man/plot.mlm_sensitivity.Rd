@@ -2,21 +2,19 @@
 % Please edit documentation in R/mlm_sensitivity.R
 \name{plot.mlm_sensitivity}
 \alias{plot.mlm_sensitivity}
-\title{Plot robustness diagnostics for a cross-level interaction}
+\title{Plot leave-one-cluster-out influence for a cross-level interaction}
 \usage{
 \method{plot}{mlm_sensitivity}(x, ...)
 }
 \arguments{
-\item{x}{An \code{mlm_sensitivity} object.}
+\item{x}{An `mlm_sensitivity` object.}
 
 \item{...}{Ignored.}
 }
 \value{
-A \code{ggplot} object.
+A ggplot object.
 }
 \description{
-Produces up to three panels: (1) interaction SE across the ICC range,
-(2) JN boundary shift across the ICC range, and (3) LOCO coefficient
-stability plot showing the interaction estimate when each cluster is
-omitted, with influential clusters flagged.
+Plots the DFBETA of each cluster, ordered by size, with the flagging
+cutoff \eqn{\pm 2/\sqrt{J}} as dashed lines.
 }

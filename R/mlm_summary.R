@@ -14,6 +14,7 @@
 #' @param conf.level Confidence level. Default `0.95`.
 #' @param jn Logical. Include Johnson-Neyman region? Default `TRUE`.
 #' @param alpha Alpha for JN interval. Default `0.05`.
+#' @inheritParams mlm_probe
 #'
 #' @return An object of class `mlm_summary` (a list) with components:
 #'   * `interaction`: one-row data frame for the interaction term.
@@ -41,42 +42,47 @@ mlm_summary <- function(model,
                         at          = NULL,
                         conf.level  = 0.95,
                         jn          = TRUE,
-                        alpha       = 0.05) {
+                        alpha       = 0.05,
+                        df_method   = c("satterthwaite", "kenward-roger",
+                                        "between", "residual"),
+                        modx.level  = c("auto", "cluster", "observation")) {
 
   .check_lmer(model)
   .validate_terms(model, pred, modx)
   modx.values <- match.arg(modx.values)
+  df_method   <- match.arg(df_method)
+  modx.level  <- match.arg(modx.level)
 
+  ctx      <- .infer_ctx(model, df_method)
   int_term <- .get_interaction_term(model, pred, modx)
-  fe       <- lme4::fixef(model)
-  vcv      <- .extract_vcov(model)
-
-  b_int  <- fe[int_term]
-  se_int <- sqrt(vcv[int_term, int_term])
-  df_r   <- get_residual_df(model)
-  t_int  <- b_int / se_int
-  p_int  <- 2 * stats::pt(abs(t_int), df = df_r, lower.tail = FALSE)
-  t_crit <- stats::qt(1 - (1 - conf.level) / 2, df = df_r)
+  L <- stats::setNames(numeric(length(ctx$fe)), names(ctx$fe))
+  L[int_term] <- 1
+  r      <- .lincomb(ctx, L)
+  t_int  <- r$estimate / r$se
+  p_int  <- 2 * stats::pt(abs(t_int), df = r$df, lower.tail = FALSE)
+  t_crit <- stats::qt(1 - (1 - conf.level) / 2, df = r$df)
 
   interaction_row <- data.frame(
     term     = int_term,
-    estimate = b_int,
-    se       = se_int,
+    estimate = r$estimate,
+    se       = r$se,
     t        = t_int,
-    df       = df_r,
+    df       = r$df,
     p        = p_int,
-    ci_lower = b_int - t_crit * se_int,
-    ci_upper = b_int + t_crit * se_int,
+    ci_lower = r$estimate - t_crit * r$se,
+    ci_upper = r$estimate + t_crit * r$se,
     stringsAsFactors = FALSE
   )
 
   probe_out <- mlm_probe(model, pred = pred, modx = modx,
                          modx.values = modx.values, at = at,
-                         conf.level = conf.level)
+                         conf.level = conf.level, df_method = df_method,
+                         modx.level = modx.level)
 
   jn_out <- NULL
   if (jn) {
-    jn_out <- mlm_jn(model, pred = pred, modx = modx, alpha = alpha)
+    jn_out <- mlm_jn(model, pred = pred, modx = modx, alpha = alpha,
+                     df_method = df_method)
   }
 
   structure(
@@ -89,6 +95,7 @@ mlm_summary <- function(model,
       modx.values   = modx.values,
       conf.level    = conf.level,
       alpha         = alpha,
+      df_method     = df_method,
       model         = model
     ),
     class = "mlm_summary"
@@ -103,13 +110,14 @@ print.mlm_summary <- function(x, digits = 3, ...) {
   cat("Focal predictor :", x$pred, "\n")
   cat("Moderator       :", x$modx, "\n")
   cat("Confidence level:", x$conf.level, "\n")
+  if (!is.null(x$df_method)) cat("df method       :", x$df_method, "\n")
 
   cat("\n--- Interaction Term ---\n")
   ir <- x$interaction
   cat(sprintf(
     "  %-28s  b = %7.3f  SE = %6.3f  t(%g) = %6.3f  p = %s  [%s, %s]\n",
     ir$term,
-    ir$estimate, ir$se, round(ir$df, 0), ir$t,
+    ir$estimate, ir$se, round(ir$df, 1), ir$t,
     format_pval(ir$p),
     round(ir$ci_lower, digits),
     round(ir$ci_upper, digits)

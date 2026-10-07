@@ -5,7 +5,7 @@ utils::globalVariables(c(
   "pred_val", "modx_val", "yhat", "y",
   "icc", "se_int_adj", "sig", "jn_bound_adj",
   "pi_lower", "pi_upper", "pct_random",
-  "b_int", "influential", "label", "cluster"
+  "b_int", "influential", "label", "cluster", "dfbeta"
 ))
 
 #' Publication-ready interaction plot for multilevel models
@@ -32,6 +32,7 @@ utils::globalVariables(c(
 #' @param x_label Label for x-axis. Defaults to `pred`.
 #' @param y_label Label for y-axis. Defaults to response variable name.
 #' @param legend_title Label for the legend. Defaults to `modx`.
+#' @inheritParams mlm_probe
 #'
 #' @return A `ggplot` object.
 #'
@@ -63,39 +64,38 @@ mlm_plot <- function(model,
                      line_size    = 1,
                      x_label      = NULL,
                      y_label      = NULL,
-                     legend_title = NULL) {
+                     legend_title = NULL,
+                     df_method    = c("satterthwaite", "kenward-roger",
+                                      "between", "residual"),
+                     modx.level   = c("auto", "cluster", "observation")) {
 
   .check_lmer(model)
   .validate_terms(model, pred, modx)
 
   modx.values <- match.arg(modx.values)
+  df_method   <- match.arg(df_method)
+  modx.level  <- match.arg(modx.level)
   mf          <- model@frame
   outcome     <- names(mf)[1]
-  modx_x      <- mf[[modx]]
 
-  modx_vals <- .pick_modx_values(modx_x, modx.values = modx.values, at = at)
+  modx_vals <- .pick_modx_values(.modx_vector(model, modx, modx.level),
+                                 modx.values = modx.values, at = at)
   grid      <- .make_prediction_grid(model, pred, modx, modx_vals)
 
   # Predict using fixed effects only (re.form = NA)
   grid$fitted <- stats::predict(model, newdata = grid, re.form = NA)
 
-  # Confidence bands via delta method over the prediction
+  # Confidence bands: SE of each fitted value from the full fixed-effects
+  # design row (covariates held at their means or reference levels).
   if (interval) {
-    ci_list <- lapply(seq_len(nrow(grid)), function(i) {
-      w <- grid[[modx]][i]
-      ss <- .simple_slope_linear(model, pred, modx, w, conf.level = conf.level)
-      # SE of predicted value at this pred value
-      # y_hat = b0 + b_pred*x + b_modx*w + b_int*x*w + ...
-      # For plotting, we compute SE of the simple slope * pred value + intercept uncertainty
-      # Use a simpler approximation: SE of fit from vcov
-      se_fit <- .se_of_fit(model, grid[i, , drop = FALSE], pred, modx)
-      data.frame(se_fit = se_fit)
-    })
-    ci_df <- do.call(rbind, ci_list)
-    df_resid <- get_residual_df(model)
-    t_crit <- stats::qt(1 - (1 - conf.level) / 2, df = df_resid)
-    grid$ci_lo <- grid$fitted - t_crit * ci_df$se_fit
-    grid$ci_hi <- grid$fitted + t_crit * ci_df$se_fit
+    ctx <- .infer_ctx(model, df_method)
+    X   <- .fixed_X(model, grid)
+    lc  <- lapply(seq_len(nrow(X)), function(i) .lincomb(ctx, X[i, ]))
+    se  <- vapply(lc, `[[`, numeric(1), "se")
+    dfs <- vapply(lc, `[[`, numeric(1), "df")
+    tc  <- stats::qt(1 - (1 - conf.level) / 2, df = dfs)
+    grid$ci_lo <- grid$fitted - tc * se
+    grid$ci_hi <- grid$fitted + tc * se
   }
 
   # Build factor labels for moderator
@@ -161,33 +161,3 @@ mlm_plot <- function(model,
 
 # ---- Internal helpers --------------------------------------------------------
 
-#' SE of fitted value using the delta method over fixed-effects
-#' @noRd
-.se_of_fit <- function(model, newrow, pred, modx) {
-  fe    <- lme4::fixef(model)
-  vcv   <- .extract_vcov(model)
-  fe_nm <- names(fe)
-
-  x_val <- newrow[[pred]]
-  w_val <- newrow[[modx]]
-  int_term <- .get_interaction_term(model, pred, modx)
-
-  # Build gradient vector (partial derivatives wrt each beta)
-  grad <- stats::setNames(rep(0, length(fe)), fe_nm)
-
-  for (nm in fe_nm) {
-    if (nm == "(Intercept)") {
-      grad[nm] <- 1
-    } else if (nm == pred) {
-      grad[nm] <- x_val
-    } else if (nm == modx) {
-      grad[nm] <- w_val
-    } else if (nm == int_term) {
-      grad[nm] <- x_val * w_val
-    }
-    # Other covariates held at mean => value is mean => gradient * mean
-    # (already absorbed into fitted value; SE contribution modest)
-  }
-
-  sqrt(as.numeric(t(grad) %*% vcv %*% grad))
-}

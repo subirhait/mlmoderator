@@ -113,8 +113,9 @@ mlm_surface <- function(model,
   grid_df$yhat <- stats::predict(model, newdata = template, re.form = NA)
 
   # ------ Moderator probe values (mean -- 1 SD) ------------------------------------------------------------------------------------------------------
-  m_modx <- mean(mf[[modx]], na.rm = TRUE)
-  s_modx <- stats::sd(mf[[modx]], na.rm = TRUE)
+  modx_v <- .modx_vector(model, modx, "auto")
+  m_modx <- mean(modx_v, na.rm = TRUE)
+  s_modx <- stats::sd(modx_v, na.rm = TRUE)
   probe_vals <- c(m_modx - s_modx, m_modx, m_modx + s_modx)
   probe_labels <- c("-1 SD", "Mean", "+1 SD")
 
@@ -171,8 +172,7 @@ mlm_surface <- function(model,
         linetype = "dashed",
         color    = "white",
         linewidth = 0.7,
-        alpha    = 0.9,
-        inherit.aes = FALSE
+        alpha    = 0.9
       ) +
       ggplot2::annotate(
         "text",

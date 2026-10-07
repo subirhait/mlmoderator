@@ -14,24 +14,24 @@
 )
 }
 \arguments{
-\item{x}{An \code{mlm_jn} object from \code{mlm_jn()}.}
+\item{x}{An `mlm_jn` object from `mlm_jn()`.}
 
 \item{x_label}{Label for the x-axis. Defaults to the moderator name.}
 
 \item{y_label}{Label for the y-axis. Defaults to "Simple slope of pred".}
 
-\item{sig_color}{Fill colour for the significant region. Default \code{"#2166AC"}.}
+\item{sig_color}{Fill colour for the significant region. Default `"#2166AC"`.}
 
-\item{nonsig_color}{Fill colour for the non-significant region. Default \code{"#D6604D"}.}
+\item{nonsig_color}{Fill colour for the non-significant region. Default `"#D6604D"`.}
 
 \item{...}{Ignored.}
 }
 \value{
-A \code{ggplot} object.
+A `ggplot` object.
 }
 \description{
-Creates a ggplot2 figure showing the simple slope of \code{pred} across the
-full range of \code{modx}, with shading indicating regions of significance.
+Creates a ggplot2 figure showing the simple slope of `pred` across the
+full range of `modx`, with shading indicating regions of significance.
 A vertical dashed line marks each Johnson-Neyman boundary.
 }
 \examples{

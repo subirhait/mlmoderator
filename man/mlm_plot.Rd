@@ -18,49 +18,71 @@ mlm_plot(
   line_size = 1,
   x_label = NULL,
   y_label = NULL,
-  legend_title = NULL
+  legend_title = NULL,
+  df_method = c("satterthwaite", "kenward-roger", "between", "residual"),
+  modx.level = c("auto", "cluster", "observation")
 )
 }
 \arguments{
-\item{model}{An \code{lmerMod} object with a two-way interaction between \code{pred}
-and \code{modx} in the fixed-effects.}
+\item{model}{An `lmerMod` object with a two-way interaction between `pred`
+and `modx` in the fixed-effects.}
 
 \item{pred}{Character scalar. Focal predictor (x-axis).}
 
 \item{modx}{Character scalar. Moderator (separate lines).}
 
 \item{modx.values}{Strategy for moderator values. Same options as
-\code{mlm_probe()}: \code{"mean-sd"}, \code{"quartiles"}, \code{"tertiles"}, \code{"custom"}.}
+`mlm_probe()`: `"mean-sd"`, `"quartiles"`, `"tertiles"`, `"custom"`.}
 
 \item{at}{Numeric vector of custom moderator values (used when
-\code{modx.values = "custom"}).}
+`modx.values = "custom"`).}
 
-\item{interval}{Logical. Draw confidence bands? Default \code{TRUE}.}
+\item{interval}{Logical. Draw confidence bands? Default `TRUE`.}
 
-\item{conf.level}{Confidence level for bands. Default \code{0.95}.}
+\item{conf.level}{Confidence level for bands. Default `0.95`.}
 
-\item{points}{Logical. Overlay raw data points? Default \code{FALSE}.}
+\item{points}{Logical. Overlay raw data points? Default `FALSE`.}
 
-\item{point_alpha}{Transparency for raw data points. Default \code{0.3}.}
+\item{point_alpha}{Transparency for raw data points. Default `0.3`.}
 
-\item{colors}{Character vector of colours for moderator lines. If \code{NULL},
+\item{colors}{Character vector of colours for moderator lines. If `NULL`,
 uses a accessible default palette.}
 
-\item{line_size}{Line width for predicted lines. Default \code{1}.}
+\item{line_size}{Line width for predicted lines. Default `1`.}
 
-\item{x_label}{Label for x-axis. Defaults to \code{pred}.}
+\item{x_label}{Label for x-axis. Defaults to `pred`.}
 
 \item{y_label}{Label for y-axis. Defaults to response variable name.}
 
-\item{legend_title}{Label for the legend. Defaults to \code{modx}.}
+\item{legend_title}{Label for the legend. Defaults to `modx`.}
+
+\item{df_method}{Denominator degrees of freedom for tests and intervals:
+* `"satterthwaite"` (default): Satterthwaite approximation via
+  \pkg{lmerTest}.
+* `"kenward-roger"`: Kenward-Roger approximation (requires
+  \pkg{pbkrtest}); also uses the Kenward-Roger adjusted covariance, so
+  standard errors can differ slightly.
+* `"between"`: \eqn{J - q - 1}, where \eqn{J} is the number of clusters
+  and \eqn{q} the number of cluster-level fixed effects (Snijders and
+  Bosker, 2012). A simple, conservative choice for cross-level terms.
+* `"residual"`: \eqn{N - p}, the rule used by mlmoderator before 0.3.0.
+  It treats level-1 observations as independent and is anti-conservative
+  for cross-level interactions, especially with few clusters; it is kept
+  only for reproducing earlier results.}
+
+\item{modx.level}{How moderator values are summarised when choosing probe
+points. `"auto"` (default) uses one value per cluster when `modx` is
+constant within clusters (a cluster-level moderator) and all
+observations otherwise; `"cluster"` and `"observation"` force either.
+Ignored when `at` is supplied.}
 }
 \value{
-A \code{ggplot} object.
+A `ggplot` object.
 }
 \description{
-Creates a \code{ggplot2}-based interaction plot showing predicted values of the
-outcome across levels of \code{pred}, with separate lines for each selected value
-of \code{modx}. Confidence bands and raw data overlay are optional.
+Creates a `ggplot2`-based interaction plot showing predicted values of the
+outcome across levels of `pred`, with separate lines for each selected value
+of `modx`. Confidence bands and raw data overlay are optional.
 }
 \examples{
 set.seed(1)

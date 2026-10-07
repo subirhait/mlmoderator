@@ -7,7 +7,7 @@
 \method{plot}{mlm_variance_decomp}(x, x_label = NULL, y_label = NULL, ...)
 }
 \arguments{
-\item{x}{An \code{mlm_variance_decomp} object.}
+\item{x}{An `mlm_variance_decomp` object.}
 
 \item{x_label}{x-axis label. Defaults to moderator name.}
 
@@ -16,7 +16,7 @@
 \item{...}{Ignored.}
 }
 \value{
-A \code{ggplot} object.
+A `ggplot` object.
 }
 \description{
 Shows the simple slope at each moderator value as a point with two

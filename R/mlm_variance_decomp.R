@@ -1,24 +1,20 @@
-#' Decompose uncertainty in the simple slope of a multilevel interaction
+#' Confidence and prediction intervals for simple slopes in a random-slope model
 #'
-#' In a random-slope model, the uncertainty around a simple slope has two
-#' distinct sources that standard `mlm_probe()` collapses into one SE:
+#' In a model with a random slope for `pred`, two different questions can be
+#' asked about the slope at a given moderator value \eqn{w}:
 #'
-#' 1. **Fixed-effect uncertainty** -- imprecision in the estimated average
-#'    slope (\eqn{\beta_1 + \beta_3 \cdot w}), captured by the fixed-effect
-#'    variance-covariance matrix.
-#' 2. **Random-slope variance** -- genuine between-cluster heterogeneity in
-#'    the slope of `pred` (\eqn{\tau_{11}}), which is *not* estimation error
-#'    but real variation in effects across clusters.
+#' 1. **How precisely is the average slope known?** The confidence interval
+#'    for \eqn{\beta_1 + \beta_3 w} reflects only estimation uncertainty in
+#'    the fixed effects (as in [mlm_probe()]).
+#' 2. **What slope should be expected in a new cluster?** The prediction
+#'    interval adds the residual random-slope variance \eqn{\tau_{11}}:
+#'    \deqn{\hat\beta_1 + \hat\beta_3 w \pm t_{df}\sqrt{SE^2(w) + \hat\tau_{11}}.}
 #'
-#' These answer different questions:
-#' * Fixed-effect uncertainty: "How precisely do we know the *average* slope
-#'   at this moderator value?"
-#' * Random-slope variance: "How much does the slope *actually vary* across
-#'   clusters, regardless of what the moderator does?"
-#'
-#' The function also reports a **prediction interval** for the slope in a
-#' new (unobserved) cluster, which combines both sources and is the
-#' appropriate uncertainty interval for making cluster-level predictions.
+#' Because `modx` is in the model, \eqn{\tau_{11}} is the slope variance
+#' that remains *after* the moderator: a significant interaction does not mean
+#' the moderator explains the between-cluster slope differences, and a large
+#' \eqn{\tau_{11}} relative to the average slope means individual clusters
+#' can have slopes far from it.
 #'
 #' @param model An `lmerMod` object with a random slope for `pred` and a
 #'   two-way interaction between `pred` and `modx`.
@@ -26,36 +22,31 @@
 #' @param modx Character scalar. Moderator name.
 #' @param modx.values Strategy for moderator values. See `mlm_probe()`.
 #' @param at Optional numeric vector of custom moderator values.
-#' @param conf.level Confidence level for fixed-effect CIs. Default `0.95`.
-#'
-#' @return An object of class `mlm_variance_decomp` (a list) with:
-#'   * `decomp`: data frame with columns `modx_value`, `slope`,
-#'     `se_fixed` (SE from fixed-effect vcov only),
-#'     `tau11` (random-slope SD, if estimable),
-#'     `se_total` (combined SE for prediction in new cluster),
-#'     `ci_lower`, `ci_upper` (fixed-effect CI),
-#'     `pi_lower`, `pi_upper` (prediction interval for new cluster),
-#'     `pct_random` (% of total slope variance from random effects).
-#'   * `tau11`: the random-slope variance (\eqn{\tau_{11}}).
-#'   * `has_random_slope`: logical -- does the model include a random slope
-#'     for `pred`?
-#'   * Metadata: `pred`, `modx`, `conf.level`.
+#' @param conf.level Level for the confidence and prediction intervals.
+#'   Default `0.95`.
+#' @inheritParams mlm_probe
 #'
 #' @details
-#' **Random-slope variance (\eqn{\tau_{11}}) interpretation:**
-#' If `tau11` is large relative to the fixed slope, the effect of `pred`
-#' varies substantially across clusters even *after* accounting for the
-#' moderator. This is important: a significant interaction does not mean
-#' the moderator fully explains between-cluster slope heterogeneity.
+#' The prediction interval treats \eqn{\hat\tau_{11}} as known and assumes
+#' normally distributed random slopes, so it is approximate and too narrow
+#' when the number of clusters is small. The random slope is taken from the
+#' grouping factor whose random-effects terms include `pred`.
 #'
-#' **Prediction interval interpretation:**
-#' The prediction interval answers: "For a randomly sampled new cluster at
-#' this moderator value, what range of slopes should we expect?" It will
-#' always be wider than the confidence interval because it incorporates
-#' \eqn{\tau_{11}}.
+#' Versions before 0.3.0 reported `pct_random`, the ratio
+#' \eqn{\tau_{11} / (\tau_{11} + SE^2)}. It mixed a population variance with
+#' a sampling variance, so it grew with sample size without any change in
+#' the data-generating process; it has been removed.
 #'
-#' **Percentage of variance from random effects:**
-#' \eqn{\% \text{random} = \frac{\tau_{11}}{\tau_{11} + \text{Var}(\hat{\beta}_{\text{simple slope}})} \times 100}
+#' @return An object of class `mlm_variance_decomp` (a list) with:
+#'   * `decomp`: data frame with columns `modx_value`, `slope`, `se_fixed`
+#'     (SE of the average slope), `tau11` (random-slope variance), `tau11_sd`
+#'     (its square root), `se_total` (\eqn{\sqrt{SE^2 + \tau_{11}}}), `df`,
+#'     `ci_lower`, `ci_upper` (confidence interval for the average slope), and
+#'     `pi_lower`, `pi_upper` (prediction interval for a new cluster).
+#'   * `tau11`, `tau11_sd`: the random-slope variance and SD.
+#'   * `has_random_slope`: logical; does the model include a random slope for
+#'     `pred`?
+#'   * Metadata: `pred`, `modx`, `conf.level`, `df_method`, `grp_name`.
 #'
 #' @examples
 #' set.seed(1)
@@ -77,74 +68,65 @@ mlm_variance_decomp <- function(model,
                                 modx.values = c("mean-sd", "quartiles",
                                                 "tertiles", "custom"),
                                 at         = NULL,
-                                conf.level = 0.95) {
+                                conf.level = 0.95,
+                                df_method  = c("satterthwaite", "kenward-roger",
+                                               "between", "residual"),
+                                modx.level = c("auto", "cluster", "observation")) {
 
   .check_lmer(model)
   .validate_terms(model, pred, modx)
   modx.values <- match.arg(modx.values)
+  df_method   <- match.arg(df_method)
+  modx.level  <- match.arg(modx.level)
 
-  mf        <- model@frame
-  modx_x    <- mf[[modx]]
-  modx_vals <- .pick_modx_values(modx_x, modx.values = modx.values, at = at)
+  ctx       <- .infer_ctx(model, df_method)
+  modx_vals <- .pick_modx_values(.modx_vector(model, modx, modx.level),
+                                 modx.values = modx.values, at = at)
 
-  # --- Extract random-slope variance (tau11) ---------------------------------------------------
-  vc          <- lme4::VarCorr(model)
-  grp_name    <- names(lme4::getME(model, "flist"))[1]
-  re_mat      <- as.matrix(vc[[grp_name]])
-  re_nms      <- rownames(re_mat)
-
-  has_random_slope <- pred %in% re_nms
-  tau11 <- if (has_random_slope) re_mat[pred, pred] else 0
-
-  # --- Fixed-effect simple slopes ---------------------------------------------------------------------------
-  df_resid <- get_residual_df(model)
-  alpha    <- 1 - conf.level
-  t_crit   <- stats::qt(1 - alpha / 2, df = df_resid)
+  # Random-slope variance from the grouping factor that carries `pred`.
+  vc  <- lme4::VarCorr(model)
+  grp <- NULL
+  for (g in names(vc)) {
+    if (pred %in% rownames(as.matrix(vc[[g]]))) { grp <- g; break }
+  }
+  has_random_slope <- !is.null(grp)
+  if (is.null(grp)) grp <- .cluster_name(model)
+  tau11 <- if (has_random_slope) as.matrix(vc[[grp]])[pred, pred] else 0
 
   rows <- lapply(modx_vals, function(w) {
-
-    ss        <- .simple_slope_linear(model, pred, modx, w,
-                                      conf.level = conf.level)
-    var_fixed <- ss$se^2
-
-    # Total variance = fixed uncertainty + random-slope variance
-    var_total <- var_fixed + tau11
-    se_total  <- sqrt(var_total)
-    pct_rand  <- if (var_total > 0) 100 * tau11 / var_total else 0
-
-    # Prediction interval for slope in a NEW cluster
-    pi_lo <- ss$slope - t_crit * se_total
-    pi_hi <- ss$slope + t_crit * se_total
-
+    ss <- .simple_slope(ctx, pred, modx, w, conf.level = conf.level)
+    se_total <- sqrt(ss$se^2 + tau11)
+    tc <- stats::qt(1 - (1 - conf.level) / 2, df = ss$df)
     data.frame(
-      modx_value  = w,
-      slope       = ss$slope,
-      se_fixed    = ss$se,
-      tau11_sd    = sqrt(tau11),
-      se_total    = se_total,
-      ci_lower    = ss$ci_lower,
-      ci_upper    = ss$ci_upper,
-      pi_lower    = pi_lo,
-      pi_upper    = pi_hi,
-      pct_random  = pct_rand,
+      modx_value = w,
+      slope      = ss$slope,
+      se_fixed   = ss$se,
+      tau11      = tau11,
+      tau11_sd   = sqrt(tau11),
+      se_total   = se_total,
+      df         = ss$df,
+      ci_lower   = ss$ci_lower,
+      ci_upper   = ss$ci_upper,
+      pi_lower   = ss$slope - tc * se_total,
+      pi_upper   = ss$slope + tc * se_total,
       stringsAsFactors = FALSE
     )
   })
-
   decomp_df <- do.call(rbind, rows)
   rownames(decomp_df) <- NULL
 
   structure(
     list(
-      decomp            = decomp_df,
-      tau11             = tau11,
-      tau11_sd          = sqrt(tau11),
-      has_random_slope  = has_random_slope,
-      pred              = pred,
-      modx              = modx,
-      modx.values       = modx.values,
-      conf.level        = conf.level,
-      grp_name          = grp_name
+      decomp           = decomp_df,
+      tau11            = tau11,
+      tau11_sd         = sqrt(tau11),
+      has_random_slope = has_random_slope,
+      pred             = pred,
+      modx             = modx,
+      modx.values      = modx.values,
+      conf.level       = conf.level,
+      df_method        = df_method,
+      grp_name         = grp
     ),
     class = "mlm_variance_decomp"
   )
@@ -171,36 +153,25 @@ print.mlm_variance_decomp <- function(x, digits = 3, ...) {
     cat(sprintf("Random-slope Var (tau11): %.3f\n\n", x$tau11))
   }
 
-  cat("--- Per-moderator-value breakdown ---\n\n")
-
+  cat("--- Per-moderator-value intervals ---\n\n")
   df <- x$decomp
-  cat(sprintf("  %-10s  %8s  %10s  %10s  %10s  %9s  %9s  %9s\n",
-              x$modx, "slope", "SE(fixed)", "SE(total)",
-              "% random", "CI lower", "CI upper", "PI lower"))
-  cat(sprintf("  %-10s  %8s  %10s  %10s  %10s  %9s  %9s  %9s\n",
-              "", "", "", "", "(new clust)", "", "", "PI upper"))
-  cat(strrep("-", 88), "\n")
-
-  for (i in seq_len(nrow(df))) {
-    cat(sprintf(
-      "  %-10.3f  %8.3f  %10.3f  %10.3f  %10.1f  %9.3f  %9.3f\n",
-      df$modx_value[i], df$slope[i], df$se_fixed[i],
-      df$se_total[i], df$pct_random[i],
-      df$ci_lower[i], df$ci_upper[i]
-    ))
-    cat(sprintf(
-      "  %-10s  %8s  %10s  %10s  %10s  %9.3f  %9.3f\n",
-      "", "", "", "", "",
-      df$pi_lower[i], df$pi_upper[i]
-    ))
+  pct <- round(100 * x$conf.level)
+  out <- data.frame(
+    modx     = round(df$modx_value, digits),
+    slope    = round(df$slope, digits),
+    se       = round(df$se_fixed, digits),
+    df       = round(df$df, 1),
+    ci       = sprintf("[%.*f, %.*f]", digits, df$ci_lower, digits, df$ci_upper),
+    pi       = sprintf("[%.*f, %.*f]", digits, df$pi_lower, digits, df$pi_upper)
+  )
+  names(out) <- c(x$modx, "slope", "SE", "df",
+                  paste0(pct, "% CI (average slope)"),
+                  paste0(pct, "% PI (new cluster)"))
+  print(out, row.names = FALSE)
+  if (x$has_random_slope) {
+    cat("\nThe prediction interval treats tau11 as known; it is approximate\n",
+        "with few clusters.\n", sep = "")
   }
-
-  if (x$has_random_slope && mean(x$decomp$pct_random) > 30) {
-    cat("\nINTERPRETATION: Random-slope variance accounts for >30% of total\n")
-    cat("slope uncertainty. The moderator does not fully explain between-\n")
-    cat("cluster heterogeneity in the '", x$pred, "' slope.\n", sep = "")
-  }
-
   cat("\n")
   invisible(x)
 }
