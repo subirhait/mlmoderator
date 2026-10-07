@@ -230,9 +230,10 @@ plot.mlm_variance_decomp <- function(x,
       y        = y_label,
       title    = "Simple Slope Variance Decomposition",
       subtitle = paste0(
-        "Inner bars: fixed-effect CI  |  ",
-        "Outer bars: prediction interval (adds \u03C411 = ",
-        round(x$tau11_sd, 3), ")"
+        "Inner bars: confidence interval for the average slope\n",
+        "Outer bars: prediction interval for a new cluster ",
+        "(random-slope SD = ", format(round(x$tau11_sd, 3), nsmall = 3),
+        ", variance = ", format(round(x$tau11, 3), nsmall = 3), ")"
       )
     ) +
     ggplot2::theme_classic(base_size = 13) +

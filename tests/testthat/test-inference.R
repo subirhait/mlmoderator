@@ -40,13 +40,14 @@ test_that("Kenward-Roger matches lmerTest when pbkrtest is available", {
 })
 
 test_that("cluster-level moderator values are computed over clusters", {
-  w_cl <- tapply(fixture_data$w, fixture_data$g, `[`, 1)
+  fd <- lme4::getData(mod)
+  w_cl <- tapply(fd$w, fd$g, `[`, 1)
   pr <- mlm_probe(mod, "x", "w", df_method = "between")
   expect_equal(pr$slopes$modx_value,
                mean(w_cl) + c(-1, 0, 1) * sd(w_cl), tolerance = 1e-10)
   pr_obs <- mlm_probe(mod, "x", "w", df_method = "between",
                       modx.level = "observation")
-  expect_equal(pr_obs$slopes$modx_value[2], mean(fixture_data$w))
+  expect_equal(pr_obs$slopes$modx_value[2], mean(fd$w))
   expect_error(mlm_probe(mod, "w", "x", modx.level = "cluster"), "varies within")
 })
 

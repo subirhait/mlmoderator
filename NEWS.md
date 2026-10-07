@@ -1,3 +1,16 @@
+# mlmoderator (development version)
+
+* `plot.mlm_variance_decomp()`: the subtitle labelled the random-slope
+  standard deviation as tau11, which is the random-slope variance. It now
+  states both quantities explicitly ("random-slope SD = ..., variance = ...").
+  The subtitle is also ASCII only: the Unicode tau it used was dropped by the
+  default `pdf()` graphics device and printed as "..". Plotted intervals and
+  all numerical results are unchanged.
+* Tests: the shared test fixture no longer writes its data to the global
+  environment. The data are embedded in the model call and read back with
+  `lme4::getData()`, so the tests run under current testthat, which isolates
+  tests from the global environment.
+
 # mlmoderator 0.3.0
 
 ## Corrections to inference (results change)

@@ -5,7 +5,8 @@ test_that("LOCO refits reproduce manual refits with the same REML setting", {
   expect_s3_class(s, "mlm_sensitivity")
   expect_equal(nrow(s$loco), 12L)
   expect_equal(s$summary$n_failed, 0L)
-  d1 <- fixture_data[fixture_data$g != "1", ]
+  fd <- lme4::getData(mod)
+  d1 <- fd[fd$g != "1", ]
   f1 <- suppressMessages(lme4::lmer(y ~ x * w + z + (1 + x | g), data = d1))
   expect_true(lme4::isREML(f1))
   expect_equal(s$loco$b_int[s$loco$cluster == "1"],
@@ -18,9 +19,9 @@ test_that("LOCO refits reproduce manual refits with the same REML setting", {
 })
 
 test_that("LOCO works with transformed variables in the formula", {
-  fixture_data$ypos <- exp(fixture_data$y / 5)
-  m2 <- suppressMessages(lme4::lmer(log(ypos) ~ x * w + (1 | g),
-                                    data = fixture_data))
+  fd <- lme4::getData(mod)
+  fd$ypos <- exp(fd$y / 5)
+  m2 <- suppressMessages(lme4::lmer(log(ypos) ~ x * w + (1 | g), data = fd))
   s <- mlm_sensitivity(m2, "x", "w", df_method = "between")
   expect_equal(s$summary$n_failed, 0L)
 })
